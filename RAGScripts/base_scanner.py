@@ -19,6 +19,7 @@ from .llm_analyzer import LLMAnalyzer
 class BaseScanner(ABC):
     def __init__(self):
         self.logger = setup_logger(self.__class__.__name__)
+        self.time = None
         self.findings = []
         self.session = requests.Session()
         self.llm_analyzer = LLMAnalyzer()

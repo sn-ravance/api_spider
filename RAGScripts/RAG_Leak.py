@@ -9,18 +9,17 @@ import requests
 from typing import Dict, List, Optional
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from .base_scanner import BaseScanner
+from RAGScripts.utils.logger import setup_scanner_logger  # Added missing import
 
 class DataExposureScanner(BaseScanner):
     def __init__(self):
         super().__init__()
-        self.target = None
-        self.base_url = None
-
-    @staticmethod
-    def scan(url: str, method: str, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
-        logger = setup_scanner_logger("data_exposure")
-        vulnerabilities = []
-
+        self.logger = setup_scanner_logger("data_exposure")
+        self.findings = []
+        
+    def scan(self, url: str, method: str, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
+        self.base_url = url
+        
         # List of endpoints to check for data exposure
         endpoints = [
             "/users/v1/_debug",
@@ -76,17 +75,13 @@ class DataExposureScanner(BaseScanner):
                         
             except requests.RequestException as e:
                 continue
+        
+        return self.findings
 
-    @staticmethod
-    def scan(url: str, method: str, path: str, response: requests.Response) -> List[Dict]:
-        scanner = DataExposureScanner()
-        scanner.target = f"{url}{path}"
-        scanner.base_url = url
-        scanner.run()
-        return scanner.findings
+# Simplify the interface
+scan = DataExposureScanner().scan
 
-scan = DataExposureScanner.scan
-
+# Remove the if __name__ == "__main__" block as it's no longer needed
 if __name__ == "__main__":
     scanner = DataExposureScanner()
     scanner.execute()

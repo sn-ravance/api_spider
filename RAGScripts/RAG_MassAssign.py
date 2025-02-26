@@ -11,16 +11,18 @@ from .base_scanner import BaseScanner
 from RAGScripts.utils.logger import setup_scanner_logger
 
 class MassAssignmentScanner(BaseScanner):
-    @staticmethod
-    def scan(url: str, method: str, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
-        logger = setup_scanner_logger("mass_assignment")
+    def __init__(self):
+        super().__init__()
+        self.logger = setup_scanner_logger("mass_assignment")
+        
+    def scan(self, url: str, method: str, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
         vulnerabilities = []
         
         # Test registration with admin privileges
         test_payload = {
-            "username": "test_mass_" + str(int(time.time())),
+            "username": "test_mass_" + str(int(self.time.time())),
             "password": "test1",
-            "email": "test_mass_" + str(int(time.time())) + "@dom.com",
+            "email": "test_mass_" + str(int(self.time.time())) + "@dom.com",
             "admin": "true"
         }
         
@@ -55,8 +57,9 @@ class MassAssignmentScanner(BaseScanner):
                             break
                             
         except requests.RequestException as e:
-            logger.error(f"Error in mass assignment check: {str(e)}")
+            self.logger.error(f"Error in mass assignment check: {str(e)}")
             
         return vulnerabilities
 
-scan = MassAssignmentScanner.scan
+# Keep the scan function for backward compatibility
+scan = MassAssignmentScanner().scan
