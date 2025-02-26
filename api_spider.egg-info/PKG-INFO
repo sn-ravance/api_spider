@@ -1,0 +1,8 @@
+Metadata-Version: 2.2
+Name: api_spider
+Version: 0.1.0
+Requires-Dist: httpx
+Requires-Dist: ollama
+Requires-Dist: pytest
+Requires-Dist: pytest-asyncio
+Dynamic: requires-dist
