@@ -12,17 +12,20 @@ from .base_scanner import BaseScanner
 from RAGScripts.utils.logger import setup_scanner_logger
 
 class RegexDOSScanner(BaseScanner):
-    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None) -> List[Dict]:
+    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> List[Dict]:
         logger = setup_scanner_logger("regex_dos")
         vulnerabilities = []
         
+        if headers is None:
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            
         # Craft a malicious payload (long string that might stress regexes)
         payload = "a" * 1000 + "!"
         test_url = f"{url}/books/v1/{payload}"
         
         try:
             start_time = time.time()
-            response = requests.get(test_url, timeout=60)
+            response = requests.get(test_url, headers=headers, timeout=60)
             end_time = time.time()
             elapsed = end_time - start_time
             

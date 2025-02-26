@@ -16,9 +16,10 @@ class DataExposureScanner(BaseScanner):
         self.target = None
         self.base_url = None
 
-    def run(self):
-        if not self.target or not self.base_url:
-            raise ValueError("Target URL and base URL not set")
+    @staticmethod
+    def scan(url: str, method: str, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
+        logger = setup_scanner_logger("data_exposure")
+        vulnerabilities = []
 
         # List of endpoints to check for data exposure
         endpoints = [

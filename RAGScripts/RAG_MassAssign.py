@@ -12,7 +12,7 @@ from RAGScripts.utils.logger import setup_scanner_logger
 
 class MassAssignmentScanner(BaseScanner):
     @staticmethod
-    def scan(url: str, method: str, token: Optional[str] = None) -> List[Dict]:
+    def scan(url: str, method: str, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
         logger = setup_scanner_logger("mass_assignment")
         vulnerabilities = []
         

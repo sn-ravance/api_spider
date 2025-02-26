@@ -12,7 +12,7 @@ from RAGScripts.utils.logger import setup_scanner_logger
 
 class UserPassEnumScanner(BaseScanner):
     @staticmethod
-    def scan(url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None) -> List[Dict]:
+    def scan(url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> List[Dict]:
         logger = setup_scanner_logger("user_pass_enum")
         vulnerabilities = []
         
@@ -20,6 +20,9 @@ class UserPassEnumScanner(BaseScanner):
         usernames = ["admin", "testuser", "nonexistentuser"]
         password = "wrongpassword"
         login_url = f"{url}/users/v1/login"
+        
+        if headers is None:
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
         
         try:
             for username in usernames:

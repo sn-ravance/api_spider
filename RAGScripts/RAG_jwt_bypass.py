@@ -20,7 +20,7 @@ from RAGScripts.utils.logger import setup_scanner_logger
 
 class JWTBypassScanner(BaseScanner):
     @staticmethod
-    def scan(url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None) -> List[Dict]:
+    def scan(url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
         logger = setup_scanner_logger("jwt_bypass")
         vulnerabilities = []
         

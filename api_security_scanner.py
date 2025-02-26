@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-"""
-api_security_scanner.py
-
-An enhanced API security scanner that performs comprehensive vulnerability assessments
-on API endpoints defined in an OpenAPI specification file. It integrates various security
-modules to detect common API vulnerabilities and security misconfigurations.
-
-Features:
-1. OpenAPI specification parsing
-2. Comprehensive security scanning
-3. Multiple vulnerability detection modules
-4. Detailed security reporting
-5. Asynchronous scanning capabilities
-"""
 
 import yaml
 import asyncio
@@ -37,20 +23,17 @@ from RAGScripts.RAG_Rate import RateLimitScanner
 from RAGScripts.RAG_jwt_bypass import JWTBypassScanner
 
 def setup_logging(verbosity: int = 1) -> logging.Logger:
-    """Configure logging based on verbosity level"""
     logger = logging.getLogger('api_security_scanner')
     
-    # Set logging level based on verbosity
     if verbosity == 1:
         level = logging.INFO
     elif verbosity == 2:
         level = logging.DEBUG
     elif verbosity >= 3:
-        level = logging.DEBUG  # Maximum detail
+        level = logging.DEBUG
     else:
         level = logging.WARNING
     
-    # Configure handler with custom format
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
@@ -60,12 +43,16 @@ def setup_logging(verbosity: int = 1) -> logging.Logger:
     return logger
 
 class APISecurityScanner:
-    def __init__(self, spec_file: str, target_url: str, verbosity: int = 1):
+    def __init__(self, spec_file: str, target_url: str, verbosity: int = 1, token: Optional[str] = None):
         self.spec_file = spec_file
         self.target_url = target_url
         self.logger = setup_logging(verbosity)
         self.spec = self._load_spec()
         self.discovery_cache = {}
+        self.headers = {}
+        if token:
+            self.headers['Authorization'] = f'Bearer {token}'
+            self.logger.info("Using provided bearer token for authenticated requests")
         self.security_checks = [
             SQLiScanner,
             UnauthorizedPasswordChangeScanner,
@@ -79,56 +66,54 @@ class APISecurityScanner:
         ]
 
     def _load_spec(self) -> Dict:
-        """Load and parse the OpenAPI specification file."""
         try:
             with open(self.spec_file, 'r') as f:
                 return yaml.safe_load(f)
         except Exception as e:
-            self.logger.error(f"Error loading OpenAPI spec: {str(e)}")
+            self.logger.error(f"Error loading spec file: {str(e)}")
             raise
 
-    async def scan_endpoint(self, path: str, methods: Dict[str, Any]) -> List[Dict]:
+    def scan_endpoint(self, path: str, methods: Dict[str, Any]) -> List[Dict]:
         findings = []
-        endpoint_url = urljoin(self.target_url, path)
+        try:
+            endpoint_url = urljoin(self.target_url, path)
 
-        for method, details in methods.items():
-            self.logger.info(f"Scanning endpoint: {method} {endpoint_url}")
-            
-            # Make initial request to endpoint
-            try:
-                response = requests.request(method, endpoint_url)
+            for method, details in methods.items():
+                self.logger.info(f"Scanning endpoint: {method} {endpoint_url}")
                 
-                # Run security checks
-                for check in self.security_checks:
-                    try:
-                        # Create scanner instance if it's a class
-                        if isinstance(check, type):
-                            scanner = check()
-                            check_findings = scanner.scan(endpoint_url, method, path, response)
-                        else:
-                            # Function-based scanner
-                            check_findings = check(endpoint_url, method, path, response)
+                try:
+                    response = requests.request(method, endpoint_url, headers=self.headers)
+                    
+                    for check in self.security_checks:
+                        try:
+                            if isinstance(check, type):
+                                scanner = check()
+                                check_findings = scanner.scan(endpoint_url, method, path, response, headers=self.headers)
+                            else:
+                                check_findings = check(endpoint_url, method, path, response, headers=self.headers)
+                                
+                            if check_findings:
+                                findings.extend(check_findings)
+                        except Exception as e:
+                            self.logger.error(f"Error in security check {check.__name__ if hasattr(check, '__name__') else type(check).__name__}: {str(e)}")
+                            continue
                             
-                        if check_findings:
-                            findings.extend(check_findings)
-                    except Exception as e:
-                        self.logger.error(f"Error in security check {check.__name__ if hasattr(check, '__name__') else type(check).__name__}: {str(e)}")
-                        continue
-                        
-            except requests.RequestException as e:
-                self.logger.error(f"Error accessing endpoint {endpoint_url}: {str(e)}")
-                continue
+                except requests.RequestException as e:
+                    self.logger.error(f"Error accessing endpoint {endpoint_url}: {str(e)}")
+                    continue
 
-        return findings
+            return findings
+        except Exception as e:
+            self.logger.error(f"Error scanning endpoint {path}: {str(e)}")
+            return findings
 
-    async def scan_api(self) -> List[Dict]:
-        """Scan all endpoints defined in the OpenAPI spec"""
+    def scan_api(self) -> List[Dict]:
         all_findings = []
         paths = self.spec.get('paths', {})
 
         for path, methods in paths.items():
             try:
-                findings = await self.scan_endpoint(path, methods)
+                findings = self.scan_endpoint(path, methods)
                 all_findings.extend(findings)
             except Exception as e:
                 self.logger.error(f"Error scanning path {path}: {str(e)}")
@@ -137,12 +122,11 @@ class APISecurityScanner:
         return all_findings
 
     def run(self) -> List[Dict]:
-        """Execute the security scan"""
         start_time = time.time()
         self.logger.info(f"Starting security scan of {self.target_url}")
 
         try:
-            findings = asyncio.run(self.scan_api())
+            findings = self.scan_api()
             elapsed = time.time() - start_time
             self.logger.info(f"Scan completed in {elapsed:.2f}s with {len(findings)} findings")
             return findings
@@ -151,26 +135,31 @@ class APISecurityScanner:
             self.logger.error(f"Scan failed: {str(e)}")
             raise
 
-if __name__ == "__main__":
-    import sys
+def main():
     import argparse
-
-    parser = argparse.ArgumentParser(description="API Security Scanner")
-    parser.add_argument("-v", "--verbose", type=int, default=1, choices=[1, 2, 3],
-                        help="Verbosity level (1-3)")
-    parser.add_argument("-o", "--output", help="Output file for scan results")
-    parser.add_argument("spec_file", help="OpenAPI specification file")
-    parser.add_argument("target_url", help="Target API URL to scan")
-
+    parser = argparse.ArgumentParser(description='API Security Scanner')
+    parser.add_argument('spec_file', help='Path to OpenAPI specification file')
+    parser.add_argument('target_url', help='Target API base URL')
+    parser.add_argument('-v', '--verbosity', type=int, default=1, help='Verbosity level (1-3)')
+    parser.add_argument('--token', help='Bearer token for authenticated requests')
+    parser.add_argument('-o', '--output', help='Output file for findings')
+    
     args = parser.parse_args()
-
-    scanner = APISecurityScanner(args.spec_file, args.target_url, args.verbose)
+    
+    scanner = APISecurityScanner(
+        spec_file=args.spec_file,
+        target_url=args.target_url,
+        verbosity=args.verbosity,
+        token=args.token
+    )
+    
     findings = scanner.run()
-
-    # Output findings
-    output_json = json.dumps(findings, indent=2)
+    
     if args.output:
         with open(args.output, 'w') as f:
-            f.write(output_json)
+            json.dump(findings, f, indent=2)
     else:
-        print(output_json)
+        print(json.dumps(findings, indent=2))
+
+if __name__ == '__main__':
+    main()

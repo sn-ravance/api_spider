@@ -7,12 +7,12 @@ by attempting to access resources belonging to other users.
 """
 
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from .base_scanner import BaseScanner
 from RAGScripts.utils.logger import setup_scanner_logger
 
 class BOLAScanner(BaseScanner):
-    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None) -> List[Dict]:
+    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
         logger = setup_scanner_logger("bola")
         vulnerabilities = []
         
@@ -23,11 +23,13 @@ class BOLAScanner(BaseScanner):
             for test_id in test_ids:
                 # Try to access user data
                 user_url = f"{url}/users/v1/{test_id}"
-                headers = {'Authorization': f'Bearer {token}'} if token else {}
+                request_headers = headers or {}
+                if token:
+                    request_headers['Authorization'] = f'Bearer {token}'
                 
                 user_resp = requests.get(
                     user_url,
-                    headers=headers,
+                    headers=request_headers,
                     timeout=5
                 )
                 

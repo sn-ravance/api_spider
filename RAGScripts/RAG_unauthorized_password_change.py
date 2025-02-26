@@ -6,13 +6,13 @@ by attempting to modify another user's password using a non-admin token.
 """
 
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from .base_scanner import BaseScanner
 from RAGScripts.utils.logger import setup_scanner_logger
 
 class UnauthorizedPasswordChangeScanner(BaseScanner):
     @staticmethod
-    def scan(url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None) -> List[Dict]:
+    def scan(url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
         logger = setup_scanner_logger("unauthorized_password_change")
         vulnerabilities = []
         
@@ -44,40 +44,31 @@ class UnauthorizedPasswordChangeScanner(BaseScanner):
                 new_password = "hacked123"
                 
                 change_url = f"{url}/users/v1/{target_username}/password"
-                headers = {"Authorization": f"Bearer {auth_token}"}
+                request_headers = headers or {}
+                request_headers["Authorization"] = f"Bearer {auth_token}"
                 payload = {"password": new_password}
                 
                 change_resp = requests.put(
                     change_url,
+                    headers=request_headers,
                     json=payload,
-                    headers=headers,
                     timeout=5
                 )
                 
-                if change_resp.status_code in [200, 204]:
-                    # Verify if password was actually changed
-                    debug_url = f"{url}/users/v1/_debug"
-                    debug_resp = requests.get(debug_url, timeout=5)
+                if change_resp.status_code == 204:
+                    vulnerabilities.append({
+                        "type": "UNAUTHORIZED_PASSWORD_CHANGE",
+                        "severity": "HIGH",
+                        "detail": f"Successfully changed password for user {target_username} using non-admin token",
+                        "evidence": {
+                            "url": change_url,
+                            "response_code": change_resp.status_code,
+                            "test_user": user["username"]
+                        }
+                    })
                     
-                    if debug_resp.status_code == 200:
-                        users = debug_resp.json().get("users", [])
-                        for debug_user in users:
-                            if debug_user.get("username") == target_username:
-                                vulnerabilities.append({
-                                    "type": "UNAUTHORIZED_PASSWORD_CHANGE",
-                                    "severity": "HIGH",
-                                    "detail": f"Successfully changed {target_username}'s password using non-admin credentials",
-                                    "evidence": {
-                                        "url": change_url,
-                                        "payload": payload,
-                                        "response": debug_resp.json()
-                                    }
-                                })
-                                break
-                                
             except requests.RequestException as e:
                 logger.error(f"Error in unauthorized password change check: {str(e)}")
-                continue
                 
         return vulnerabilities
 

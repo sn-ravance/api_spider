@@ -11,9 +11,10 @@ class SQLiScanner(BaseScanner):
         super().__init__()
         self.logger = setup_scanner_logger("sqli")
 
-    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None) -> List[Dict[str, Any]]:
+    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
         vulnerabilities = []
-        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        if headers is None:
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
 
         # SQL Injection patterns
         payloads = {

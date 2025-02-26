@@ -24,7 +24,7 @@ class BaseScanner(ABC):
         self.llm_analyzer = LLMAnalyzer()
 
     @abstractmethod
-    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None) -> List[Dict[str, Any]]:
+    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
         """Base scan method to be implemented by child classes
         
         Args:
@@ -33,6 +33,7 @@ class BaseScanner(ABC):
             path (str): API endpoint path
             response (requests.Response): Initial response from the endpoint
             token (str, optional): Authentication token
+            headers (Dict[str, str], optional): Request headers
             
         Returns:
             List[Dict[str, Any]]: List of discovered vulnerabilities
