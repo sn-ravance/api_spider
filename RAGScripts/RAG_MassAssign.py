@@ -15,10 +15,10 @@ class MassAssignmentScanner(BaseScanner):
         super().__init__()
         self.logger = setup_scanner_logger("mass_assignment")
         
-    def scan(self, url: str, method: str, token: Optional[str] = None, headers: Optional[Dict] = None) -> List[Dict]:
+    def scan(self, url: str, method: str, path: str, response: requests.Response, token: Optional[str] = None, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+        self.base_url = url
         vulnerabilities = []
         
-        # Test registration with admin privileges
         test_payload = {
             "username": "test_mass_" + str(int(self.time.time())),
             "password": "test1",
@@ -27,39 +27,41 @@ class MassAssignmentScanner(BaseScanner):
         }
         
         try:
-            # Attempt registration with admin privileges
             register_url = f"{url}/users/v1/register"
-            register_resp = requests.post(
-                register_url,
-                json=test_payload,
-                timeout=5
+            register_resp = self.make_request(
+                method="POST",
+                endpoint="/users/v1/register",
+                data=test_payload
             )
             
             if register_resp.status_code == 200:
-                # Check if admin privileges were granted
-                debug_url = f"{url}/users/v1/_debug"
-                debug_resp = requests.get(debug_url, timeout=5)
+                debug_resp = self.make_request(
+                    method="GET",
+                    endpoint="/users/v1/_debug"
+                )
                 
                 if debug_resp.status_code == 200:
                     users = debug_resp.json().get("users", [])
                     for user in users:
                         if user.get("username") == test_payload["username"] and user.get("admin") == True:
-                            vulnerabilities.append({
-                                "type": "MASS_ASSIGNMENT",
-                                "severity": "HIGH",
-                                "detail": "Successfully created admin user through mass assignment",
-                                "evidence": {
-                                    "url": register_url,
-                                    "payload": test_payload,
-                                    "response": debug_resp.json()
-                                }
-                            })
+                            request_data, response_data = self.capture_transaction(register_resp)
+                            
+                            self.add_finding(
+                                title="Mass Assignment Vulnerability",
+                                description="Successfully created admin user through mass assignment",
+                                endpoint="/users/v1/register",
+                                severity_level="tier2",
+                                impact="Unauthorized privilege escalation through mass assignment",
+                                request=request_data,
+                                response=response_data,
+                                remediation="Implement proper input validation and role-based access control"
+                            )
                             break
                             
         except requests.RequestException as e:
             self.logger.error(f"Error in mass assignment check: {str(e)}")
             
-        return vulnerabilities
+        return self.findings
 
 # Keep the scan function for backward compatibility
 scan = MassAssignmentScanner().scan
